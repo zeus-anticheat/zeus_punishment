@@ -6,7 +6,7 @@ This documentation serves both **Server Owners & Administrators** (for setup, po
 
 ---
 
-## 🏗 Architecture Boundary & Disclosure Note
+## Architecture Boundary & Disclosure Note
 
 Zeus Punishment acts purely as a consumer of abstract "Zeus Engine" violation alerts. It does not implement detection mechanisms locally, nor does it log, display, or utilize any real AI/ML architecture names (which is strictly prohibited to prevent bypassing). Instead, it enforces actions based on functional tiers (e.g., *Observe, Warn, Kick, Enforce*).
 
@@ -14,7 +14,7 @@ The plugin maintains strict network thread isolation—ensuring that long-lived 
 
 ---
 
-## 🚀 Setup & Installation
+## Setup & Installation
 
 ### Build Requirements
 - JDK 17 or higher
@@ -49,7 +49,7 @@ cd zeus_punishment/ZeusPunishmentFabric
 
 ---
 
-## ⚙️ Detailed Configuration Guide
+## Detailed Configuration Guide
 
 The primary configuration resides in `config.yml`. The plugin allows you to seamlessly configure policies without reloading the entire server.
 
@@ -77,7 +77,7 @@ policies:
 
 ---
 
-## 🛡️ Operator Commands & Permissions
+## Operator Commands & Permissions
 
 The primary command is `/zpunish`. All administrative subcommands require the `zpunish.admin` permission.
 
@@ -95,7 +95,7 @@ The `/zpunish gui` command opens a visual inventory menu. From here, operators c
 
 ---
 
-## 🛠️ Troubleshooting & Network Configuration
+## Troubleshooting & Network Configuration
 
 Due to the persistent nature of SSE (Server-Sent Events) used to receive violations, specific network tuning may be required.
 
@@ -131,7 +131,7 @@ Report the findings to the developers, noting specifically the `Zeus-SSE-Client`
 
 ---
 
-## 💻 Developer & API Integration Boundary
+## Developer & API Integration Boundary
 
 Developers can extend or intercept Zeus Punishment behaviors via established API boundaries.
 
