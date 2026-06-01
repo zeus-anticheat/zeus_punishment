@@ -6,6 +6,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import org.vennv.zeuspunishment.core.PunishmentDispatcher;
+import org.vennv.zeuspunishment.core.model.DispatcherOutcome;
 import org.vennv.zeuspunishment.core.model.ViolationRecord;
 
 import java.util.HashMap;
@@ -37,8 +38,8 @@ public class FabricDispatcher implements PunishmentDispatcher {
     }
 
     @Override
-    public void kickPlayer(ViolationRecord record, String reason) {
-        if (server == null) return;
+    public DispatcherOutcome kickPlayer(ViolationRecord record, String reason) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
         server.execute(() -> {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(record.getUsername());
             if (player != null) {
@@ -50,11 +51,12 @@ public class FabricDispatcher implements PunishmentDispatcher {
                 player.networkHandler.disconnect(Text.literal(kickMsg));
             }
         });
+        return DispatcherOutcome.executed("kick scheduled");
     }
 
     @Override
-    public void banPlayer(ViolationRecord record, String reason, long durationMillis) {
-        if (server == null) return;
+    public DispatcherOutcome banPlayer(ViolationRecord record, String reason, long durationMillis) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
         server.execute(() -> {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(record.getUsername());
             if (player != null) {
@@ -69,11 +71,12 @@ public class FabricDispatcher implements PunishmentDispatcher {
             // BannedPlayerEntry entry = new BannedPlayerEntry(...);
             // server.getPlayerManager().getUserBanList().add(entry);
         });
+        return DispatcherOutcome.executed("ban scheduled");
     }
 
     @Override
-    public void setbackPlayer(ViolationRecord record) {
-        if (server == null) return;
+    public DispatcherOutcome setbackPlayer(ViolationRecord record) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
         server.execute(() -> {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(record.getUsername());
             if (player != null) {
@@ -84,11 +87,12 @@ public class FabricDispatcher implements PunishmentDispatcher {
                 player.velocityModified = true;
             }
         });
+        return DispatcherOutcome.executed("setback scheduled");
     }
 
     @Override
-    public void mitigatePlayer(ViolationRecord record) {
-        if (server == null) return;
+    public DispatcherOutcome mitigatePlayer(ViolationRecord record) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
         server.execute(() -> {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(record.getUsername());
             if (player != null) {
@@ -97,12 +101,13 @@ public class FabricDispatcher implements PunishmentDispatcher {
                 player.velocityModified = true;
             }
         });
+        return DispatcherOutcome.executed("mitigation scheduled");
     }
 
     @Override
-    public void playEffect(String uid) {
-        if (server == null) return;
-        if (!mod.getCoreConfig().isEffectsEnabled()) return;
+    public DispatcherOutcome playEffect(String uid) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
+        if (!mod.getCoreConfig().isEffectsEnabled()) return DispatcherOutcome.ignored("effects disabled");
         server.execute(() -> {
             UUID id = UUID.fromString(uid.replaceFirst("(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)", "$1-$2-$3-$4-$5"));
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(id);
@@ -115,20 +120,22 @@ public class FabricDispatcher implements PunishmentDispatcher {
                 }
             }
         });
+        return DispatcherOutcome.executed("effect scheduled");
     }
 
     @Override
-    public void broadcast(String message) {
-        if (server == null) return;
+    public DispatcherOutcome broadcast(String message) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
         String formatted = message.replace("&e", "").replace("&c", "").replace("&7", ""); // Simplified
         server.execute(() -> {
             server.getPlayerManager().broadcast(Text.literal(formatted), false);
         });
+        return DispatcherOutcome.executed("broadcast scheduled");
     }
 
     @Override
-    public void logVerbose(String message) {
-        if (server == null) return;
+    public DispatcherOutcome logVerbose(String message) {
+        if (server == null) return DispatcherOutcome.retryableFailure("server unavailable");
         String formatted = "[Zeus-Dev] " + message;
         server.execute(() -> {
             System.out.println(formatted); // Console
@@ -138,5 +145,6 @@ public class FabricDispatcher implements PunishmentDispatcher {
                 }
             }
         });
+        return DispatcherOutcome.executed("verbose log scheduled");
     }
 }

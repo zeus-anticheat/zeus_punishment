@@ -7,47 +7,41 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.Arrays;
+import org.vennv.zeuspunishment.core.scheduler.BanwaveManager;
 
 public class MenuBuilder {
+    public static final int SLOT_RELOAD = 11;
+    public static final int SLOT_STATUS = 12;
+    public static final int SLOT_PAUSE_RESUME = 13;
+    public static final int SLOT_EXECUTE = 14;
+    public static final int SLOT_CLEAR = 15;
+    public static final int QUEUE_START = 18;
+    public static final int QUEUE_END = 44;
+    public static final int SLOT_REFRESH = 49;
 
     public static void open(Player player, org.vennv.zeuspunishment.gateway.ZeusPunishmentPlugin plugin) {
         Inventory inv = Bukkit.createInventory(null, 54, ChatColor.AQUA + "Zeus Punishment Menu");
+        BanwaveManager.QueueState queue = plugin.getBanwaveManager().getQueueState();
 
-        boolean verbose = plugin.getCoreConfig().isDevVerboseMode();
-        boolean banwave = plugin.getCoreConfig().isBanwaveEnabled();
-        boolean effects = plugin.getCoreConfig().isEffectsEnabled();
-        boolean devMode = plugin.getCoreConfig().isDevMode();
-        inv.setItem(11, createItem(Material.REDSTONE_BLOCK, "&cReload Configuration", "&7Click to reload rules", "&7and sync with API."));
-        inv.setItem(12, createItem(Material.WITHER_SKELETON_SKULL, "&eToggle Verbose Mode", "&7Current: " + (verbose ? "&aON" : "&cOFF"), "&7Enable to see AI explanations", "&7and model scores in chat."));
-        inv.setItem(13, createItem(Material.DIAMOND_SWORD, "&aBanwave Feature", "&7Current: " + (banwave ? "&aON" : "&cOFF"), "&7Toggle banwave functionality."));
-        inv.setItem(14, createItem(Material.GLOWSTONE_DUST, "&6Toggle Effects", "&7Current: " + (effects ? "&aON" : "&cOFF"), "&7Enable Lightning strike effects."));
-        inv.setItem(15, createItem(Material.COMMAND_BLOCK, "&5Toggle Dev Mode", "&7Current: " + (devMode ? "&aON" : "&cOFF"), "&7If enabled, actions like kick/ban", "&7will only warn the player instead."));
+        inv.setItem(SLOT_RELOAD, createItem(Material.REDSTONE_BLOCK, "&cReload Configuration", "&7Validate and reload configuration."));
+        inv.setItem(SLOT_STATUS, createItem(Material.COMPASS, "&bCached Status", "&7Queued reviews: &e" + queue.getQueuedCount(), "&7State: &e" + queueState(queue), "&7Duplicate suppressions: &e" + queue.getDuplicateSuppressions()));
+        inv.setItem(SLOT_PAUSE_RESUME, createItem(Material.LEVER, queue.isPaused() ? "&aResume Banwave Review" : "&ePause Banwave Review", "&7Uses the shared queue manager."));
+        inv.setItem(SLOT_EXECUTE, createItem(Material.TNT, "&cExecute Queued Reviews", "&7Manual approval action.", "&7Queued: &e" + queue.getQueuedCount()));
+        inv.setItem(SLOT_CLEAR, createItem(Material.BARRIER, "&4Clear Queue", "&7Cancel all queued reviews."));
 
-        java.util.List<String> activeModels = plugin.getEngine().getCachedModels();
-        int slot = 18;
-        for (String modelId : activeModels) {
-            if (slot >= 45) break; // Do not overflow bottom bar
-            String warnAction = plugin.getConfig().getString("models." + modelId + ".warning_action", "NONE");
-            String kickAction = plugin.getConfig().getString("models." + modelId + ".kick_action", "NONE");
-            String banAction = plugin.getConfig().getString("models." + modelId + ".ban_action", "NONE");
-            // Hidden modelId in the lore via ChatColor magic or just a straight text line
-            inv.setItem(slot, createItem(Material.PAPER, "&dModel: &f" + modelId, 
-                "&7Warning Action: &e" + warnAction, 
-                "&7Kick Action: &e" + kickAction, 
-                "&7Ban Action: &e" + banAction, 
-                "", 
-                "&bLeft-Click &7to cycle Warning", 
-                "&bRight-Click &7to cycle Kick", 
-                "&bShift-Left &7to cycle Ban", 
-                "&0" + modelId));
-            slot++;
+        int slot = QUEUE_START;
+        for (BanwaveManager.QueueEntry entry : queue.entries()) {
+            if (slot > QUEUE_END) break;
+            inv.setItem(slot++, createItem(Material.PAPER, "&dQueued Review", "&7Key: &f" + entry.key(), "&7Player: &e" + entry.username(), "&7Policy tier: &e" + entry.severity(), "&bLeft-click &7inspect", "&cRight-click &7cancel", "&0" + entry.key()));
         }
-
-        inv.setItem(49, createItem(Material.TNT, "&cExecute Banwave Now", "&7Force trigger the banwave if active."));
-
+        inv.setItem(SLOT_REFRESH, createItem(Material.SUNFLOWER, "&aRefresh", "&7Reload cached GUI state."));
         player.openInventory(inv);
+    }
+
+    private static String queueState(BanwaveManager.QueueState queue) {
+        if (queue.isPaused()) return "paused";
+        if (queue.isCountingDown()) return "countdown " + queue.getSecondsRemaining() + "s";
+        return "review";
     }
 
     private static ItemStack createItem(Material mat, String name, String... lore) {
@@ -56,9 +50,7 @@ public class MenuBuilder {
         if (meta != null) {
             meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
             java.util.List<String> loreList = new java.util.ArrayList<>();
-            for (String l : lore) {
-                loreList.add(ChatColor.translateAlternateColorCodes('&', l));
-            }
+            for (String l : lore) loreList.add(ChatColor.translateAlternateColorCodes('&', l));
             meta.setLore(loreList);
             item.setItemMeta(meta);
         }

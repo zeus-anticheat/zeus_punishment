@@ -24,9 +24,11 @@ public class ZeusPunishmentPlugin extends JavaPlugin {
         loadPluginConfig();
 
         this.dispatcher = new BukkitDispatcher(this);
-        this.apiClient = new ZeusApiClient(config.getEndpointUrl(), config.getConnectTimeoutMs(), config.getReadTimeoutMs(), config.getReconnectInitialMs(), config.getReconnectMaxMs());
-        this.banwaveManager = new BanwaveManager(config, dispatcher);
-        this.engine = new ZeusPunishmentEngine(config, dispatcher, apiClient, banwaveManager);
+        this.apiClient = new ZeusApiClient(config.getEndpointUrl());
+        org.vennv.zeuspunishment.core.audit.AuditSink auditSink = ZeusPunishmentEngine.createDefaultAuditSink(getDataFolder().toPath(), getLogger(), config.isAuditEnabled());
+        org.vennv.zeuspunishment.core.cooldown.CooldownGate cooldownGate = new org.vennv.zeuspunishment.core.cooldown.CooldownGate();
+        this.banwaveManager = new BanwaveManager(config, dispatcher, auditSink, cooldownGate);
+        this.engine = new ZeusPunishmentEngine(config, dispatcher, apiClient, banwaveManager, auditSink, cooldownGate);
 
         // Register Command
         getCommand("zpunish").setExecutor(new ZPunishCommand(this));
@@ -67,15 +69,23 @@ public class ZeusPunishmentPlugin extends JavaPlugin {
         if (getConfig().contains("message_ban")) {
             config.setMessageBan(getConfig().getString("message_ban"));
         }
+        config.setDryRun(getConfig().getBoolean("policy.dry_run", true));
+        config.setEnforcementEnabled(getConfig().getBoolean("policy.enforcement_enabled", false));
+        config.setPolicyPreset(getConfig().getString("policy.preset", "observe"));
+        config.setManualBanwaveApprovalRequired(getConfig().getBoolean("policy.manual_banwave_approval", true));
+        config.setImmediateBanEnabled(getConfig().getBoolean("policy.high_impact.immediate_ban", false));
+        config.setBroadcastsEnabled(getConfig().getBoolean("policy.high_impact.broadcasts", false));
+        config.setEffectsEnabled(getConfig().getBoolean("policy.high_impact.effects", false));
+        config.setAuditEnabled(getConfig().getBoolean("policy.audit.enabled", true));
+        config.setAuditPath(getConfig().getString("policy.audit.path", "logs/zeus-punishment-audit.jsonl"));
+        config.setPunishmentCooldownSeconds(getConfig().getInt("policy.cooldowns.punishment_seconds", 30));
+        config.setBroadcastCooldownSeconds(getConfig().getInt("policy.cooldowns.broadcast_seconds", 30));
+        config.setEffectCooldownSeconds(getConfig().getInt("policy.cooldowns.effect_seconds", 10));
+        config.setStatusRefreshCooldownSeconds(getConfig().getInt("policy.cooldowns.status_refresh_seconds", 5));
+        config.setGuiRefreshCooldownSeconds(getConfig().getInt("policy.cooldowns.gui_refresh_seconds", 5));
         config.setBanwaveEnabled(getConfig().getBoolean("banwave.enabled", false));
-        config.setEffectsEnabled(getConfig().getBoolean("effects_enabled", true));
-        config.setConnectTimeoutMs(clampNetworkMs(getConfig().getInt("network.connect_timeout_ms", config.getConnectTimeoutMs()), 1000, 60000, config.getConnectTimeoutMs()));
-        config.setReadTimeoutMs(clampNetworkMs(getConfig().getInt("network.read_timeout_ms", config.getReadTimeoutMs()), 1000, 60000, config.getReadTimeoutMs()));
-        config.setReconnectInitialMs(clampNetworkMs(getConfig().getInt("network.reconnect_initial_ms", config.getReconnectInitialMs()), 250, 60000, config.getReconnectInitialMs()));
-        config.setReconnectMaxMs(clampNetworkMs(getConfig().getInt("network.reconnect_max_ms", config.getReconnectMaxMs()), config.getReconnectInitialMs(), 300000, config.getReconnectMaxMs()));
-        config.setHealthRetries(clampNetworkMs(getConfig().getInt("network.health_retries", config.getHealthRetries()), 1, 20, config.getHealthRetries()));
 
-        // Load Model Rules
+        // Load legacy action rules and policy profile overrides
         org.bukkit.configuration.ConfigurationSection modelSec = getConfig().getConfigurationSection("models");
         if (modelSec != null) {
             for (String modelId : modelSec.getKeys(false)) {
@@ -88,26 +98,68 @@ public class ZeusPunishmentPlugin extends JavaPlugin {
                 config.setActionForModel(modelId, org.vennv.zeuspunishment.core.model.Severity.BAN, org.vennv.zeuspunishment.core.config.ActionType.fromString(banAction));
             }
         }
+
+        org.bukkit.configuration.ConfigurationSection profileSec = getConfig().getConfigurationSection("profiles");
+        if (profileSec != null) {
+            for (String profileId : profileSec.getKeys(false)) {
+                config.setPolicyOverride(profileId, org.vennv.zeuspunishment.core.model.Severity.WARNING, profileSec.getString(profileId + ".warning_policy", "observe"));
+                config.setPolicyOverride(profileId, org.vennv.zeuspunishment.core.model.Severity.KICK, profileSec.getString(profileId + ".kick_policy", "review"));
+                config.setPolicyOverride(profileId, org.vennv.zeuspunishment.core.model.Severity.BAN, profileSec.getString(profileId + ".ban_policy", "review"));
+            }
+        }
     }
 
-    private int clampNetworkMs(int value, int min, int max, int fallback) {
-        if (value < min) return fallback;
-        return Math.min(value, max);
-    }
-
-    public void reloadPlugin() {
+    public boolean reloadPlugin() {
+        PunishmentConfig nextConfig;
+        try {
+            nextConfig = parsePluginConfigSnapshot();
+            validatePluginConfigSnapshot(nextConfig);
+        } catch (RuntimeException ex) {
+            getLogger().warning("ZeusPunishment config invalid; keeping existing services active: " + ex.getMessage());
+            return false;
+        }
         java.util.List<String> oldModels = this.engine != null ? this.engine.getCachedModels() : new java.util.ArrayList<>();
         if (this.engine != null) {
             this.engine.stop();
         }
-        loadPluginConfig();
-        this.apiClient = new ZeusApiClient(config.getEndpointUrl(), config.getConnectTimeoutMs(), config.getReadTimeoutMs(), config.getReconnectInitialMs(), config.getReconnectMaxMs());
-        this.banwaveManager = new BanwaveManager(config, dispatcher);
-        // Reload engine with new config
-        this.engine = new ZeusPunishmentEngine(config, dispatcher, apiClient, banwaveManager);
+        this.config = nextConfig;
+        this.apiClient = new ZeusApiClient(config.getEndpointUrl());
+        org.vennv.zeuspunishment.core.audit.AuditSink auditSink = ZeusPunishmentEngine.createDefaultAuditSink(getDataFolder().toPath(), getLogger(), config.isAuditEnabled());
+        org.vennv.zeuspunishment.core.cooldown.CooldownGate cooldownGate = new org.vennv.zeuspunishment.core.cooldown.CooldownGate();
+        this.banwaveManager = new BanwaveManager(config, dispatcher, auditSink, cooldownGate);
+        this.engine = new ZeusPunishmentEngine(config, dispatcher, apiClient, banwaveManager, auditSink, cooldownGate);
         this.engine.setCachedModels(oldModels);
-        // Start engine streams again
         this.engine.start();
+        return true;
+    }
+
+    public void reconnectStream() {
+        if (this.engine != null) {
+            this.engine.stop();
+            this.engine.start();
+        }
+    }
+
+    private PunishmentConfig parsePluginConfigSnapshot() {
+        reloadConfig();
+        PunishmentConfig previous = this.config;
+        this.config = new PunishmentConfig();
+        loadPluginConfig();
+        PunishmentConfig parsed = this.config;
+        this.config = previous;
+        return parsed;
+    }
+
+    private void validatePluginConfigSnapshot(PunishmentConfig snapshot) {
+        if (snapshot.getEndpointUrl() == null || snapshot.getEndpointUrl().isBlank()) {
+            throw new IllegalArgumentException("endpoint is required");
+        }
+        if (!snapshot.getEndpointUrl().startsWith("http://") && !snapshot.getEndpointUrl().startsWith("https://")) {
+            throw new IllegalArgumentException("endpoint must be http or https");
+        }
+        if (!PunishmentConfig.allowedPolicyPresets().contains(snapshot.getPolicyPreset())) {
+            throw new IllegalArgumentException("policy preset is invalid");
+        }
     }
 
     private void startSchedulers() {

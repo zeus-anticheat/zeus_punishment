@@ -1,40 +1,41 @@
 package org.vennv.zeuspunishment.core;
 
+import org.vennv.zeuspunishment.core.model.DispatcherOutcome;
 import org.vennv.zeuspunishment.core.model.ViolationRecord;
 
 public interface PunishmentDispatcher {
     /**
      * Executes a kick punishment.
      */
-    void kickPlayer(ViolationRecord record, String reason);
+    default DispatcherOutcome kickPlayer(ViolationRecord record, String reason) { return DispatcherOutcome.executed("kick scheduled"); }
 
     /**
      * Executes a ban punishment.
      */
-    void banPlayer(ViolationRecord record, String reason, long durationMillis);
+    default DispatcherOutcome banPlayer(ViolationRecord record, String reason, long durationMillis) { return DispatcherOutcome.executed("ban scheduled"); }
 
     /**
      * Setbacks the player to their client location.
      */
-    void setbackPlayer(ViolationRecord record);
+    default DispatcherOutcome setbackPlayer(ViolationRecord record) { return DispatcherOutcome.executed("setback scheduled"); }
 
     /**
      * Mitigates the player's movement without teleporting them.
      */
-    void mitigatePlayer(ViolationRecord record);
+    default DispatcherOutcome mitigatePlayer(ViolationRecord record) { return DispatcherOutcome.executed("mitigation scheduled"); }
 
     /**
      * Plays the custom Zeus bolt effect at the player's location.
      */
-    void playEffect(String uid);
+    default DispatcherOutcome playEffect(String uid) { return DispatcherOutcome.executed("effect scheduled"); }
 
     /**
      * Broadcasts a message to the entire server.
      */
-    void broadcast(String message);
+    default DispatcherOutcome broadcast(String message) { return DispatcherOutcome.executed("broadcast scheduled"); }
 
     /**
      * Send a message to admins/developers with verbosity enabled.
      */
-    void logVerbose(String message);
+    default DispatcherOutcome logVerbose(String message) { return DispatcherOutcome.executed("log recorded"); }
 }

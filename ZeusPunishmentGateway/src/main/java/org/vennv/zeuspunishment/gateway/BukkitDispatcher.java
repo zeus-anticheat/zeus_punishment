@@ -5,6 +5,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.vennv.zeuspunishment.core.PunishmentDispatcher;
+import org.vennv.zeuspunishment.core.model.DispatcherOutcome;
 import org.vennv.zeuspunishment.core.model.ViolationRecord;
 
 import java.util.HashMap;
@@ -29,7 +30,7 @@ public class BukkitDispatcher implements PunishmentDispatcher {
     }
 
     @Override
-    public void kickPlayer(ViolationRecord record, String reason) {
+    public DispatcherOutcome kickPlayer(ViolationRecord record, String reason) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player player = Bukkit.getPlayer(record.getUsername());
             if (player != null && player.isOnline()) {
@@ -41,10 +42,11 @@ public class BukkitDispatcher implements PunishmentDispatcher {
                 player.kickPlayer(kickMsg);
             }
         });
+        return DispatcherOutcome.executed("kick scheduled");
     }
 
     @Override
-    public void banPlayer(ViolationRecord record, String reason, long durationMillis) {
+    public DispatcherOutcome banPlayer(ViolationRecord record, String reason, long durationMillis) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player player = Bukkit.getPlayer(record.getUsername());
             if (player != null && player.isOnline()) {
@@ -60,10 +62,11 @@ public class BukkitDispatcher implements PunishmentDispatcher {
                 Bukkit.getBanList(org.bukkit.BanList.Type.NAME).addBan(record.getUsername(), reason, null, "Zeus");
             }
         });
+        return DispatcherOutcome.executed("ban scheduled");
     }
 
     @Override
-    public void setbackPlayer(ViolationRecord record) {
+    public DispatcherOutcome setbackPlayer(ViolationRecord record) {
         // Teleport player back to their past location (1s ago) to cancel momentum and revert speed hacks
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player player = Bukkit.getPlayer(record.getUsername());
@@ -74,10 +77,11 @@ public class BukkitDispatcher implements PunishmentDispatcher {
                 player.setVelocity(new org.bukkit.util.Vector(0, -0.08, 0)); // Pull them down
             }
         });
+        return DispatcherOutcome.executed("setback scheduled");
     }
 
     @Override
-    public void mitigatePlayer(ViolationRecord record) {
+    public DispatcherOutcome mitigatePlayer(ViolationRecord record) {
         // Smoothly cancel violation without hard lagback teleport
         Bukkit.getScheduler().runTask(plugin, () -> {
             Player player = Bukkit.getPlayer(record.getUsername());
@@ -86,10 +90,11 @@ public class BukkitDispatcher implements PunishmentDispatcher {
                 player.setVelocity(new org.bukkit.util.Vector(0, -0.08, 0));
             }
         });
+        return DispatcherOutcome.executed("mitigation scheduled");
     }
 
     @Override
-    public void playEffect(String uid) {
+    public DispatcherOutcome playEffect(String uid) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             // Find player by matching Uid string or we'd just find by name if we passed name.
             // Since offline UUIDs might not match online ones perfectly depending on mode, looping helps or UUID.fromString.
@@ -103,18 +108,20 @@ public class BukkitDispatcher implements PunishmentDispatcher {
                 }
             }
         });
+        return DispatcherOutcome.executed("effect scheduled");
     }
 
     @Override
-    public void broadcast(String message) {
+    public DispatcherOutcome broadcast(String message) {
         String formatted = ChatColor.translateAlternateColorCodes('&', message);
         Bukkit.getScheduler().runTask(plugin, () -> {
             Bukkit.broadcastMessage(formatted);
         });
+        return DispatcherOutcome.executed("broadcast scheduled");
     }
 
     @Override
-    public void logVerbose(String message) {
+    public DispatcherOutcome logVerbose(String message) {
         String formattedMsg = ChatColor.translateAlternateColorCodes('&', "&b[Zeus-Dev] &7" + message);
         Bukkit.getScheduler().runTask(plugin, () -> {
             // Log to console
@@ -126,5 +133,6 @@ public class BukkitDispatcher implements PunishmentDispatcher {
                 }
             }
         });
+        return DispatcherOutcome.executed("log recorded");
     }
 }

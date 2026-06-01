@@ -1,24 +1,35 @@
 endpoint: "http://127.0.0.1:8080"
 verbose: false
 dev_mode: false
-effects_enabled: true
 
-network:
-  connect_timeout_ms: 5000
-  read_timeout_ms: 5000
-  reconnect_initial_ms: 1000
-  reconnect_max_ms: 30000
-  health_retries: 3
+policy:
+  preset: observe
+  dry_run: true
+  enforcement_enabled: false
+  manual_banwave_approval: true
+  high_impact:
+    immediate_ban: false
+    broadcasts: false
+    effects: false
+  audit:
+    enabled: true
+    path: "logs/zeus-punishment-audit.jsonl"
+  cooldowns:
+    punishment_seconds: 30
+    broadcast_seconds: 30
+    effect_seconds: 10
+    status_refresh_seconds: 5
+    gui_refresh_seconds: 5
 
-message_kick: "&cYou have been kicked by Zeus Anti-Cheat!"
-message_ban: "&cYou have been banned by Zeus Anti-Cheat!"
+message_kick: "&cAction applied by Zeus policy."
+message_ban: "&cAction applied by Zeus policy."
 
 banwave:
   enabled: false
   countdown: 60
 
-models:
-  FlyA:
-    warning_action: NONE
-    kick_action: MITIGATE
-    ban_action: SETBACK
+profiles:
+  default:
+    warning_policy: observe
+    kick_policy: review
+    ban_policy: review

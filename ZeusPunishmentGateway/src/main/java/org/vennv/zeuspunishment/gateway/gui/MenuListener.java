@@ -6,115 +6,64 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+import org.vennv.zeuspunishment.core.scheduler.BanwaveManager;
 import org.vennv.zeuspunishment.gateway.ZeusPunishmentPlugin;
 
 public class MenuListener implements Listener {
-
     private final ZeusPunishmentPlugin plugin;
 
-    public MenuListener(ZeusPunishmentPlugin plugin) {
-        this.plugin = plugin;
-    }
+    public MenuListener(ZeusPunishmentPlugin plugin) { this.plugin = plugin; }
 
     @EventHandler
     public void onMenuClick(InventoryClickEvent event) {
-        if (event.getView().getTitle().equals(ChatColor.AQUA + "Zeus Punishment Menu")) {
-            event.setCancelled(true); // Ngăn không cho kéo/thả items
+        if (!event.getView().getTitle().equals(ChatColor.AQUA + "Zeus Punishment Menu")) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!player.hasPermission("zpunish.admin")) return;
+        if (event.getCurrentItem() == null) return;
 
-            if (event.getCurrentItem() == null) return;
-            ItemStack clicked = event.getCurrentItem();
-
-            if (event.getWhoClicked() instanceof Player) {
-                Player player = (Player) event.getWhoClicked();
-
-                switch (event.getRawSlot()) {
-                    case 11:
-                        plugin.reloadPlugin();
-                        player.sendMessage(ChatColor.GREEN + "[Zeus] Configuration reloaded & API synced!");
-                        MenuBuilder.open(player, plugin);
-                        break;
-                    case 12:
-                        boolean currentVerbose = plugin.getCoreConfig().isDevVerboseMode();
-                        plugin.getConfig().set("verbose", !currentVerbose);
-                        plugin.saveConfig();
-                        plugin.getCoreConfig().setDevVerboseMode(!currentVerbose);
-                        player.sendMessage(ChatColor.YELLOW + "[Zeus] Verbose Mode changed to: " + !currentVerbose);
-                        MenuBuilder.open(player, plugin);
-                        break;
-                    case 13:
-                        boolean banwave = plugin.getCoreConfig().isBanwaveEnabled();
-                        plugin.getConfig().set("banwave.enabled", !banwave);
-                        plugin.saveConfig();
-                        plugin.getCoreConfig().setBanwaveEnabled(!banwave);
-                        player.sendMessage(ChatColor.YELLOW + "[Zeus] Banwave Feature changed to: " + !banwave);
-                        MenuBuilder.open(player, plugin);
-                        break;
-                    case 14:
-                        boolean effects = plugin.getCoreConfig().isEffectsEnabled();
-                        plugin.getConfig().set("effects_enabled", !effects);
-                        plugin.saveConfig();
-                        plugin.getCoreConfig().setEffectsEnabled(!effects);
-                        player.sendMessage(ChatColor.YELLOW + "[Zeus] Lightning Effects changed to: " + !effects);
-                        MenuBuilder.open(player, plugin);
-                        break;
-                    case 15:
-                        boolean currentDevMode = plugin.getCoreConfig().isDevMode();
-                        plugin.getConfig().set("dev_mode", !currentDevMode);
-                        plugin.saveConfig();
-                        plugin.getCoreConfig().setDevMode(!currentDevMode);
-                        player.sendMessage(ChatColor.YELLOW + "[Zeus] Dev Mode changed to: " + !currentDevMode);
-                        MenuBuilder.open(player, plugin);
-                        break;
-
-                    case 49:
-                        player.sendMessage(ChatColor.GOLD + "[Zeus] Actioning Banwave manual toggle (if active)...");
-                        if (plugin.getCoreConfig().isBanwaveEnabled()) {
-                            plugin.getBanwaveManager().startCountdown();
-                            player.sendMessage(ChatColor.GREEN + "[Zeus] Banwave triggered! Countdown starting.");
-                        } else {
-                            player.sendMessage(ChatColor.RED + "[Zeus] Banwave is disabled!");
-                        }
-                        player.closeInventory();
-                        break;
-                    default:
-                        if (event.getRawSlot() >= 18 && event.getRawSlot() <= 44) {
-                            if (clicked.hasItemMeta() && clicked.getItemMeta().hasLore()) {
-                                java.util.List<String> lore = clicked.getItemMeta().getLore();
-                                if (!lore.isEmpty()) {
-                                    String lastLine = lore.get(lore.size() - 1);
-                                    String modelId = ChatColor.stripColor(lastLine);
-                                    if (modelId != null && !modelId.trim().isEmpty()) {
-                                        cycleModelAction(player, plugin, modelId, event.getClick());
-                                    }
-                                }
-                            }
-                        }
-                        break;
-                }
+        switch (event.getRawSlot()) {
+            case MenuBuilder.SLOT_RELOAD -> {
+                player.sendMessage(plugin.reloadPlugin() ? ChatColor.GREEN + "[Zeus] Configuration reloaded." : ChatColor.RED + "[Zeus] Config invalid; services unchanged.");
+                MenuBuilder.open(player, plugin);
             }
+            case MenuBuilder.SLOT_STATUS, MenuBuilder.SLOT_REFRESH -> MenuBuilder.open(player, plugin);
+            case MenuBuilder.SLOT_PAUSE_RESUME -> {
+                BanwaveManager.ControlResult result = plugin.getBanwaveManager().getQueueState().isPaused() ? plugin.getBanwaveManager().resume() : plugin.getBanwaveManager().pause();
+                player.sendMessage(ChatColor.YELLOW + "[Zeus] " + result.message());
+                MenuBuilder.open(player, plugin);
+            }
+            case MenuBuilder.SLOT_EXECUTE -> {
+                BanwaveManager.ControlResult result = plugin.getBanwaveManager().executeAll();
+                player.sendMessage((result.success() ? ChatColor.GREEN : ChatColor.RED) + "[Zeus] " + result.message());
+                MenuBuilder.open(player, plugin);
+            }
+            case MenuBuilder.SLOT_CLEAR -> {
+                player.sendMessage(ChatColor.YELLOW + "[Zeus] " + plugin.getBanwaveManager().clearQueue().message());
+                MenuBuilder.open(player, plugin);
+            }
+            default -> handleQueueClick(player, event);
         }
     }
 
-    private void cycleModelAction(Player player, ZeusPunishmentPlugin plugin, String modelId, org.bukkit.event.inventory.ClickType clickType) {
-        String level = "warning";
-        if (clickType.isShiftClick()) {
-            level = "ban";
-        } else if (clickType.isRightClick()) {
-            level = "kick";
+    private void handleQueueClick(Player player, InventoryClickEvent event) {
+        if (event.getRawSlot() < MenuBuilder.QUEUE_START || event.getRawSlot() > MenuBuilder.QUEUE_END) return;
+        String key = hiddenKey(event.getCurrentItem());
+        if (key == null || key.isBlank()) return;
+        if (event.getClick().isRightClick()) {
+            BanwaveManager.ControlResult result = plugin.getBanwaveManager().cancel(key);
+            player.sendMessage((result.success() ? ChatColor.GREEN : ChatColor.RED) + "[Zeus] " + result.message());
+            MenuBuilder.open(player, plugin);
+            return;
         }
+        BanwaveManager.QueueEntry entry = plugin.getBanwaveManager().details(key);
+        player.sendMessage(entry == null ? ChatColor.RED + "[Zeus] Queued entry not found." : ChatColor.GRAY + "[Zeus] Review " + entry.key() + " player=" + entry.username() + " tier=" + entry.severity());
+    }
 
-        String currentAction = plugin.getConfig().getString("models." + modelId + "." + level + "_action", "NONE");
-        String nextAction = "MITIGATE";
-        if (currentAction.equals("NONE")) nextAction = "MITIGATE";
-        else if (currentAction.equals("MITIGATE")) nextAction = "SETBACK";
-        else if (currentAction.equals("SETBACK")) nextAction = "KICK";
-        else if (currentAction.equals("KICK")) nextAction = "BAN";
-        else if (currentAction.equals("BAN")) nextAction = "NONE";
-        
-        plugin.getConfig().set("models." + modelId + "." + level + "_action", nextAction);
-        plugin.saveConfig();
-        plugin.reloadPlugin();
-        player.sendMessage(ChatColor.YELLOW + "[Zeus] Model " + modelId + " (" + level.toUpperCase() + ") action changed to: " + nextAction);
-        MenuBuilder.open(player, plugin);
+    private String hiddenKey(ItemStack item) {
+        if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasLore()) return null;
+        java.util.List<String> lore = item.getItemMeta().getLore();
+        if (lore == null || lore.isEmpty()) return null;
+        return ChatColor.stripColor(lore.get(lore.size() - 1));
     }
 }
