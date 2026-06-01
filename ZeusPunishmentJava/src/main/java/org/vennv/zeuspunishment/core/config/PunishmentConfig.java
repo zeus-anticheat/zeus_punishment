@@ -11,6 +11,11 @@ public class PunishmentConfig {
     private boolean devVerboseMode = false;
     private boolean devMode = false;
     private boolean effectsEnabled = true;
+    private int connectTimeoutMs = 5000;
+    private int readTimeoutMs = 5000;
+    private int reconnectInitialMs = 1000;
+    private int reconnectMaxMs = 30000;
+    private int healthRetries = 3;
 
     // Model severity rules
     private final Map<String, Map<Severity, ActionType>> modelSeverityActions = new HashMap<>();
@@ -39,6 +44,21 @@ public class PunishmentConfig {
 
     public boolean isEffectsEnabled() { return effectsEnabled; }
     public void setEffectsEnabled(boolean effectsEnabled) { this.effectsEnabled = effectsEnabled; }
+
+    public int getConnectTimeoutMs() { return connectTimeoutMs; }
+    public void setConnectTimeoutMs(int connectTimeoutMs) { this.connectTimeoutMs = connectTimeoutMs; }
+
+    public int getReadTimeoutMs() { return readTimeoutMs; }
+    public void setReadTimeoutMs(int readTimeoutMs) { this.readTimeoutMs = readTimeoutMs; }
+
+    public int getReconnectInitialMs() { return reconnectInitialMs; }
+    public void setReconnectInitialMs(int reconnectInitialMs) { this.reconnectInitialMs = reconnectInitialMs; }
+
+    public int getReconnectMaxMs() { return reconnectMaxMs; }
+    public void setReconnectMaxMs(int reconnectMaxMs) { this.reconnectMaxMs = reconnectMaxMs; }
+
+    public int getHealthRetries() { return healthRetries; }
+    public void setHealthRetries(int healthRetries) { this.healthRetries = healthRetries; }
 
     public ActionType getActionForModel(String modelId, Severity severity) {
         Map<Severity, ActionType> actions = modelSeverityActions.get(modelId);
