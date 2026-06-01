@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "zeuspunishment",
+  "version": "1.0-SNAPSHOT",
+  "name": "Zeus Punishment",
+  "description": "Zeus Platform Punishment Component for Fabric 1.21.x",
+  "authors": [
+    "VennDev"
+  ],
+  "contact": {
+    "homepage": "https://github.com/vennv/zeus-platform"
+  },
+  "license": "All Rights Reserved",
+  "icon": "assets/zeuspunishment/icon.png",
+  "environment": "server",
+  "entrypoints": {
+    "server": [
+      "org.vennv.zeuspunishment.fabric.ZeusPunishmentMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.6",
+    "minecraft": "1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

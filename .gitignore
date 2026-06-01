@@ -1,0 +1,17 @@
+# Build outputs
+build/
+target/
+out/
+*.class
+*.jar
+
+# Gradle
+.gradle/
+
+# IDE
+.idea/
+.settings/
+*.iml
+
+# OS
+.DS_Store

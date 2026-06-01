@@ -1,0 +1,17 @@
+endpoint: "http://127.0.0.1:8080"
+verbose: false
+dev_mode: false
+effects_enabled: true
+
+message_kick: "&cYou have been kicked by Zeus Anti-Cheat!"
+message_ban: "&cYou have been banned by Zeus Anti-Cheat!"
+
+banwave:
+  enabled: false
+  countdown: 60
+
+models:
+  FlyA:
+    warning_action: NONE
+    kick_action: MITIGATE
+    ban_action: SETBACK

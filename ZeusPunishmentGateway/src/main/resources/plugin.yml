@@ -1,0 +1,10 @@
+name: ZeusPunishmentGateway
+version: 1.0-SNAPSHOT
+main: org.vennv.zeuspunishment.gateway.ZeusPunishmentPlugin
+api-version: 1.13
+description: Automated Punishment Handling for Zeus Platform (Paper/Spigot/Folia)
+commands:
+  zpunish:
+    description: Zeus Punishment Management Command
+    permission: zpunish.admin
+    usage: /<command> [gui|reload|verbose|banwave]
