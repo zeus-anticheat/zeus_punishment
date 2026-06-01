@@ -24,7 +24,7 @@ public class ZeusPunishmentPlugin extends JavaPlugin {
         loadPluginConfig();
 
         this.dispatcher = new BukkitDispatcher(this);
-        this.apiClient = new ZeusApiClient(config.getEndpointUrl());
+        this.apiClient = new ZeusApiClient(config.getEndpointUrl(), config.getConnectTimeoutMs(), config.getReadTimeoutMs(), config.getReconnectInitialMs(), config.getReconnectMaxMs());
         this.banwaveManager = new BanwaveManager(config, dispatcher);
         this.engine = new ZeusPunishmentEngine(config, dispatcher, apiClient, banwaveManager);
 
@@ -69,6 +69,11 @@ public class ZeusPunishmentPlugin extends JavaPlugin {
         }
         config.setBanwaveEnabled(getConfig().getBoolean("banwave.enabled", false));
         config.setEffectsEnabled(getConfig().getBoolean("effects_enabled", true));
+        config.setConnectTimeoutMs(clampNetworkMs(getConfig().getInt("network.connect_timeout_ms", config.getConnectTimeoutMs()), 1000, 60000, config.getConnectTimeoutMs()));
+        config.setReadTimeoutMs(clampNetworkMs(getConfig().getInt("network.read_timeout_ms", config.getReadTimeoutMs()), 1000, 60000, config.getReadTimeoutMs()));
+        config.setReconnectInitialMs(clampNetworkMs(getConfig().getInt("network.reconnect_initial_ms", config.getReconnectInitialMs()), 250, 60000, config.getReconnectInitialMs()));
+        config.setReconnectMaxMs(clampNetworkMs(getConfig().getInt("network.reconnect_max_ms", config.getReconnectMaxMs()), config.getReconnectInitialMs(), 300000, config.getReconnectMaxMs()));
+        config.setHealthRetries(clampNetworkMs(getConfig().getInt("network.health_retries", config.getHealthRetries()), 1, 20, config.getHealthRetries()));
 
         // Load Model Rules
         org.bukkit.configuration.ConfigurationSection modelSec = getConfig().getConfigurationSection("models");
@@ -85,13 +90,19 @@ public class ZeusPunishmentPlugin extends JavaPlugin {
         }
     }
 
+    private int clampNetworkMs(int value, int min, int max, int fallback) {
+        if (value < min) return fallback;
+        return Math.min(value, max);
+    }
+
     public void reloadPlugin() {
         java.util.List<String> oldModels = this.engine != null ? this.engine.getCachedModels() : new java.util.ArrayList<>();
         if (this.engine != null) {
             this.engine.stop();
         }
         loadPluginConfig();
-        this.apiClient = new ZeusApiClient(config.getEndpointUrl());
+        this.apiClient = new ZeusApiClient(config.getEndpointUrl(), config.getConnectTimeoutMs(), config.getReadTimeoutMs(), config.getReconnectInitialMs(), config.getReconnectMaxMs());
+        this.banwaveManager = new BanwaveManager(config, dispatcher);
         // Reload engine with new config
         this.engine = new ZeusPunishmentEngine(config, dispatcher, apiClient, banwaveManager);
         this.engine.setCachedModels(oldModels);
